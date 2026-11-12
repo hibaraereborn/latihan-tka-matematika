@@ -67,6 +67,12 @@ table.t th,table.kat th{background:var(--pri-soft)}
 table.kat td.c{text-align:center;width:90px}
 table.kat tr.ok td{background:var(--ok-soft)} table.kat tr.bad td{background:var(--bad-soft)}
 .tablewrap{overflow-x:auto}
+.sess{padding:0 24px}
+.arrow{position:fixed;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;padding:0;font-size:32px;line-height:44px;text-align:center;background:rgba(30,41,59,.4);color:#fff;border:0;z-index:20;box-shadow:none}
+.arrow.l{left:2px}.arrow.r{right:2px}
+.arrow:hover:not(:disabled){background:rgba(30,41,59,.7)}
+.arrow:disabled{display:none}
+@media (max-width:560px){.sess{padding:0 26px}.arrow{width:40px;height:40px;font-size:28px;line-height:36px}.arrow.l{left:0}.arrow.r{right:0}}
 .nav{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
 .nav button{width:42px;padding:6px 0;font-weight:700}
 .nav button.done{background:var(--pri-soft);border-color:var(--pri)}
@@ -126,6 +132,7 @@ table.kat tr.ok td{background:var(--ok-soft)} table.kat tr.bad td{background:var
   .hrow .muted[style]{font-size:15px!important}
   .chip{font-size:13.5px}
 }
+.vsw{margin-top:12px}.vsw button{margin:2px 4px 2px 0}.vsw button.on{background:var(--pri,#2563eb);color:#fff;border-color:transparent}
 </style>
 </head>
 <body>
@@ -280,12 +287,46 @@ let tick = null;
 const BYID = Object.fromEntries(BANK.map(q=>[q.id,q]));
 let CUR='home';
 // bank soal salah & nilai terbaik dihitung dari riwayat (riwayat = satu-satunya data yang disimpan)
-function getSalah(){ const wb={};
-  for(const e of [...uget('hist',[])].sort((a,b)=>a.te-b.te)) for(const it of e.items){ const q=BYID[it.id];
+/* ---------- superuser: pantau akun lain (read-only) ---------- */
+const SUPER=['bimbandev'];
+let VIEW=null, VIEW_FOR=null, ALT={}, VST={}, VAT={};   // VIEW = akun yang sedang dilihat; ALT = riwayat akun lain (memori)
+const isSuper=()=>SUPER.includes(USER);
+function vu(){ if(VIEW_FOR!==USER){ VIEW_FOR=USER; VIEW=USER; ALT={}; VST={}; VAT={}; }
+  if(!isSuper()||!USERS[VIEW]) VIEW=USER; return VIEW; }
+function HVof(u){ return u===USER ? uget('hist',[]) : (ALT[u] || kget(u,'hist',[])); }
+const HV=()=>HVof(vu());
+async function loadView(u){
+  const me=USER; if(!isSuper()||u===me||!USERS[u]||VST[u]==='loading') return;
+  VST[u]='loading'; VAT[u]=Date.now();
+  try{
+    if(!sb) throw new Error('offline');
+    const rows=[]; for(let from=0;;from+=1000){
+      const {data,error}=await sb.from('sesi').select('data').eq('username',u).order('id').range(from,from+999);
+      if(error) throw error; rows.push(...data); if(data.length<1000) break; }
+    if(me!==USER) return;
+    const m=new Map(); rows.forEach(r=>{ const d=r.data; if(d&&d.sid&&Array.isArray(d.items)&&typeof d.te==='number') m.set(d.sid,d); });
+    const h=[...m.values()].sort((a,b)=>b.t-a.t);
+    ALT[u]=h; kset(u,'hist',h); VST[u]='ok';
+  }catch(e){ if(me!==USER) return; VST[u]='off'; }
+  if(me===USER && !S && isSuper()) ({stat,hist,salah:bankSalah})[CUR]?.();
+}
+function ensureView(all){ if(!isSuper()) return;
+  (all?Object.keys(USERS):[vu()]).forEach(u=>{ if(u!==USER && VST[u]!=='loading' && Date.now()-(VAT[u]||0)>20000) loadView(u); }); }
+function viewBar(all){ // pemilih akun + catatan status (hanya superuser)
+  if(!isSuper()) return ''; const v=vu(); ensureView(all);
+  const need=all?Object.keys(USERS).filter(u=>u!==USER):(v!==USER?[v]:[]);
+  const loading=need.filter(u=>VST[u]==='loading'&&!ALT[u]), off=need.filter(u=>VST[u]==='off');
+  return `<div class="card vsw"><span class="muted">👀 Lihat data:</span> `+Object.keys(USERS).map(u=>`<button data-v="${esc(u)}" class="${u===v?'on':''}">${esc(u)}</button>`).join('')
+    +(loading.length?`<div class="muted" style="margin-top:6px">⏳ memuat data ${esc(loading.join(', '))}...</div>`:'')
+    +(off.length?`<div class="muted" style="margin-top:6px;color:var(--bad)">⚠️ Offline: data ${esc(off.join(', '))} diambil dari cache perangkat, mungkin belum terbaru.</div>`:'')+`</div>`;
+}
+function bindView(fn){ app.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{ VIEW=b.dataset.v; fn(); }); }
+function getSalah(H=uget('hist',[])){ const wb={};
+  for(const e of [...H].sort((a,b)=>a.te-b.te)) for(const it of e.items){ const q=BYID[it.id];
     if(!q||!answered(q,it.a)) continue;
     if(correct(q,it.a)) delete wb[it.id]; else wb[it.id]={n:((wb[it.id]||{}).n||0)+1,t:e.te}; }
   return wb; }
-function getBest(){ const b={}; uget('hist',[]).forEach(e=>{ if(e.mode==='ujian') b['P'+e.val]=Math.max(b['P'+e.val]||0,e.nilai); }); return b; }
+function getBest(H=uget('hist',[])){ const b={}; H.forEach(e=>{ if(e.mode==='ujian') b['P'+e.val]=Math.max(b['P'+e.val]||0,e.nilai); }); return b; }
 function tabs(cur){
   CUR=cur;
   const nS=Object.keys(getSalah()).length;
@@ -371,7 +412,7 @@ function render(){
   const q = S.qs[S.i], a = S.ans[S.i];
   const show = S.done || S.checked[S.i];
   const title = latTitle();
-  let h = `<div class="bar"><button id="back">← ${S.fromHist?'Riwayat':'Beranda'}</button><b>${title}</b>
+  let h = `<div class="sess"><div class="bar"><button id="back">← ${S.fromHist?'Riwayat':'Beranda'}</button><b>${title}</b>
     ${S.mode==='ujian'&&!S.done?`<span class="timer" id="timer">${fmt(S.left)}</span>`:''}</div>`;
   h += `<div class="card"><div class="muted" style="font-size:14px">Soal ${S.i+1} dari ${S.qs.length}</div>
     <div style="margin:6px 0">${q.level==='olimpiade'?'<span class="chip olim">⭐ OLIMPIADE</span>':`<span class="chip">${SEC[q.tipe]}</span>`}
@@ -402,7 +443,7 @@ function render(){
   }
   h += `<div class="row" style="justify-content:space-between">
     <button id="prev" ${S.i===0?'disabled':''}>← Sebelumnya</button>
-    ${S.mode==='latihan'&&!S.checked[S.i]&&!S.done?`<button class="pri" id="check" ${answered(q,a)?'':'disabled'}>Cek Jawaban</button>`:''}
+    ${S.mode==='latihan'&&q.tipe==='pgk'&&!S.checked[S.i]&&!S.done?`<button class="pri" id="check" ${answered(q,a)?'':'disabled'}>Selesai memilih ✓</button>`:''}
     ${S.i<S.qs.length-1?`<button id="next">Berikutnya →</button>`:(S.mode==='ujian'&&!S.done?`<button class="pri" id="fin">Kumpulkan</button>`:(S.mode==='latihan'?`<button class="pri" id="sum">Lihat Hasil</button>`:''))}
   </div></div>`;
   // navigator
@@ -413,16 +454,25 @@ function render(){
   }).join('') + `</div>`;
   if(S.mode==='ujian'&&!S.done) h+=`<div class="row"><button class="pri" id="fin2">Kumpulkan Jawaban</button></div>`;
   if(S.done) h+=`<div class="row"><button class="pri" id="res">Lihat Nilai</button></div>`;
+  h += `<button class="arrow l" id="aprev" aria-label="Soal sebelumnya" ${S.i===0?'disabled':''}>‹</button>
+    <button class="arrow r" id="anext" aria-label="Soal berikutnya" ${S.i>=S.qs.length-1?'disabled':''}>›</button></div>`;
   app.innerHTML = h; math(app);
+  window.__arrowGo = d=>{ if(!S||!S.qs||!$('#aprev')) return; const n=S.i+d; if(n<0||n>=S.qs.length) return; S.i=n; render(); window.scrollTo(0,0); };
+  if(!window.__arrowKeys){ window.__arrowKeys=true;
+    document.addEventListener('keydown',ev=>{ const t=ev.target, tag=t&&t.tagName;
+      if(tag==='INPUT'&&t.type!=='radio'&&t.type!=='checkbox'||tag==='TEXTAREA'||tag==='SELECT'||(t&&t.isContentEditable)) return;
+      if(ev.key==='ArrowLeft') window.__arrowGo(-1); else if(ev.key==='ArrowRight') window.__arrowGo(1); });
+  }
 
   // events
   $('#back').onclick = ()=>{ if(S.mode==='ujian'&&!S.done) ask('Keluar dari ujian? Jawaban akan hilang.',home,'Ya, keluar'); else if(S.fromHist) hist(); else home(); };
   app.querySelectorAll('input[data-k]').forEach(e=>e.onchange=()=>{
     const k=+e.dataset.k;
-    if(q.tipe==='pg') S.ans[S.i]=k; else { const s=new Set(S.ans[S.i]); e.checked?s.add(k):s.delete(k); S.ans[S.i]=[...s]; }
+    if(q.tipe==='pg') { S.ans[S.i]=k; autoCheck(); } else { const s=new Set(S.ans[S.i]); e.checked?s.add(k):s.delete(k); S.ans[S.i]=[...s]; }
     keep();
   });
-  app.querySelectorAll('input[data-r]').forEach(e=>e.onchange=()=>{ S.ans[S.i][+e.dataset.r]=e.dataset.v==='true'; keep(); });
+  app.querySelectorAll('input[data-r]').forEach(e=>e.onchange=()=>{ S.ans[S.i][+e.dataset.r]=e.dataset.v==='true'; autoCheck(); keep(); });
+  on_('#aprev',()=>window.__arrowGo(-1)); on_('#anext',()=>window.__arrowGo(1));
   app.querySelectorAll('[data-n]').forEach(e=>e.onclick=()=>{S.i=+e.dataset.n;render();window.scrollTo(0,0);});
   const on=(id,f)=>{const e=$(id); if(e) e.onclick=f;};
   on('#prev',()=>{S.i--;render();window.scrollTo(0,0);});
@@ -435,6 +485,12 @@ function render(){
   on('#fin',fin); on('#fin2',fin);
 }
 
+function on_(id,f){ const e=$(id); if(e) e.onclick=f; }
+function autoCheck(){ // mode latihan: pg & kategori dicek otomatis begitu terjawab penuh
+  const q=S.qs[S.i];
+  if(S.mode!=='latihan'||S.done||S.checked[S.i]||q.tipe==='pgk'||!answered(q,S.ans[S.i])) return;
+  S.checked[S.i]=true; saveHist();
+}
 function keep(){ const y=window.scrollY; render(); window.scrollTo(0,y); }
 function ask(text,yes,yesLabel='Ya, kumpulkan'){
   $('#modalText').textContent=text; $('#mYes').textContent=yesLabel; $('#mNo').classList.remove('hide'); $('#modal').classList.remove('hide');
@@ -455,8 +511,8 @@ function saveHist(){
   const h=uget('hist',[]), i=h.findIndex(x=>x.sid===S.sid); if(i>=0) h[i]=e; else h.unshift(e);
   uset('hist',h); const p=uget('pending',{}); p[e.sid]=e.te; uset('pending',p); push();
 }
-function allItems(){ // semua jawaban yang tercatat: [{q,a,ok,kosong}]
-  const out=[]; for(const e of uget('hist',[])) for(const it of e.items){ const q=BYID[it.id]; if(!q) continue;
+function allItems(H=uget('hist',[])){ // semua jawaban yang tercatat: [{q,a,ok,kosong}]
+  const out=[]; for(const e of H) for(const it of e.items){ const q=BYID[it.id]; if(!q) continue;
     const kosong=!answered(q,it.a); out.push({q,a:it.a,kosong,ok:!kosong&&correct(q,it.a)}); }
   return out;
 }
@@ -465,10 +521,17 @@ const bars=(rows)=>rows.map(([nm,b,t])=>`<div style="margin:8px 0"><div style="d
 
 function stat(){
   if(!page()) return;
-  const it=allItems(), dik=it.filter(x=>!x.kosong), benar=dik.filter(x=>x.ok).length, salah=dik.length-benar;
-  const unik=new Set(dik.map(x=>x.q.id)).size, H=uget('hist',[]);
+  const V=vu(), H=HV(), own=V===USER;
+  const it=allItems(H), dik=it.filter(x=>!x.kosong), benar=dik.filter(x=>x.ok).length, salah=dik.length-benar;
+  const unik=new Set(dik.map(x=>x.q.id)).size;
   const box=(cls,v,lbl,p='')=>`<div class="card stat ${cls}"><div class="v ${p}">${v}</div><div class="muted">${lbl}</div></div>`;
-  let h = tabs('stat') + `<div class="grid">${box('',dik.length,'Total soal dikerjakan','p')}${box('ok',benar,'Total benar')}${box('bad',salah,'Total salah')}
+  let h = tabs('stat') + viewBar(true);
+  if(isSuper()) h += `<h2 style="margin-top:12px">👥 Perbandingan akun</h2><div class="grid">`+Object.keys(USERS).map(u=>{
+    const hh=HVof(u), d=allItems(hh).filter(x=>!x.kosong), b=d.filter(x=>x.ok).length, last=hh.reduce((m,e)=>Math.max(m,e.te||0),0);
+    return `<div class="card cmp" data-cmp="${esc(u)}"><b>${esc(u)}</b>${u===USER?' <span class="chip">saya</span>':''}<div class="muted" style="font-size:14px;margin-top:4px">
+      dikerjakan <b>${d.length}</b> · <span style="color:var(--ok)">benar ${b}</span> · <span style="color:var(--bad)">salah ${d.length-b}</span><br>
+      ketepatan <b>${d.length?Math.round(b/d.length*100)+'%':'-'}</b><br>sesi terakhir: ${last?tgl(last):'-'}</div></div>`; }).join('')+`</div>`;
+  h += `<h2 style="margin-top:12px">📊 Statistik ${esc(V)}</h2><div class="grid">${box('',dik.length,'Total soal dikerjakan','p')}${box('ok',benar,'Total benar')}${box('bad',salah,'Total salah')}
     ${box('',dik.length?Math.round(benar/dik.length*100)+'%':'-','Ketepatan','p')}</div>
     <div class="muted" style="margin:10px 2px;font-size:15px">${unik} dari ${BANK.length} soal berbeda sudah pernah dikerjakan · ${H.length} sesi latihan/ujian ·
     ${it.length-dik.length} soal dibiarkan kosong saat ujian (tidak dihitung).</div>`;
@@ -478,27 +541,22 @@ function stat(){
     h += `<div class="grid" style="margin-top:4px"><div class="card"><b>Per Klaster (benar/dikerjakan)</b>${bars(Object.keys(window.KLASTER).filter(k=>mk[k]).map(k=>['K'+k+'. '+window.KLASTER[k],...mk[k]]))}</div>
       <div class="card"><b>Per Jenis Soal</b>${bars(['pg','pgk','kategori','olim'].filter(k=>mt[k]).map(k=>[k==='olim'?'⭐ Olimpiade':SEC[k].slice(3),...mt[k]]))}</div></div>`;
   }
-  const best=getBest(), done=PAKETS.filter(p=>best['P'+p]!=null);
-  h += `<h2>📝 Nilai terbaik paket tryout (${done.length}/${PAKETS.length})</h2><div class="card">${done.length?done.map(p=>`<div class="hrow"><span>Paket ${p}</span><b>${best['P'+p]}</b></div>`).join(''):'<span class="muted">Belum ada paket tryout yang dikerjakan.</span>'}</div>
-    <div class="row"><button id="reset">🗑️ Hapus semua data akun ini</button></div>`;
-  app.innerHTML=h; bindTabs(); window.scrollTo(0,0);
-  $('#reset').onclick=()=>ask(`Hapus SEMUA statistik, riwayat, bank soal salah, dan nilai milik ${USER}? Tidak bisa dibatalkan.`,
-    async()=>{ if(pushing) await pushing; const {error}=sb?await sb.from('sesi').delete().eq('username',USER):{};
-      if(error){ ask('Gagal menghapus (cek koneksi internet).',()=>{},'Oke'); $('#mNo').classList.add('hide'); return; }
-      RESET_AT=Date.now(); uset('hist',[]); uset('pending',{}); stat(); },'Ya, hapus');
+  const best=getBest(H), done=PAKETS.filter(p=>best['P'+p]!=null);
+  h += `<h2>📝 Nilai terbaik paket tryout (${done.length}/${PAKETS.length})</h2><div class="card">${done.length?done.map(p=>`<div class="hrow"><span>Paket ${p}</span><b>${best['P'+p]}</b></div>`).join(''):'<span class="muted">Belum ada paket tryout yang dikerjakan.</span>'}</div>`;
+  app.innerHTML=h; bindTabs(); bindView(stat); window.scrollTo(0,0);
 }
 
 function hist(){
   if(!page()) return;
-  const H=uget('hist',[]);
-  let h = tabs('hist') + `<h2 style="margin-top:12px">🕘 Riwayat Pengerjaan (${H.length})</h2>`;
+  const V=vu(), H=HV();
+  let h = tabs('hist') + viewBar() + `<h2 style="margin-top:12px">🕘 Riwayat Pengerjaan${V===USER?'':' '+esc(V)} (${H.length})</h2>`;
   if(!H.length) h+=`<div class="card muted">Belum ada riwayat. Kerjakan paket tryout atau latihan dulu ya.</div>`;
   else h+=`<div class="card">`+H.map((e,i)=>{ const dur=Math.max(1,Math.round((e.te-e.t)/60000));
     return `<div class="hrow"><div style="min-width:0"><b>${esc(e.judul)}</b> <span class="chip">${e.mode==='ujian'?'Tryout':'Latihan'}</span><br>
       <span class="muted" style="font-size:14px">${tgl(e.t)} · ${dur} menit · ${e.items.length}${e.mode==='latihan'?` dari ${e.n}`:''} soal ·
       <span style="color:var(--ok)">✔ ${e.benar}</span> · <span style="color:var(--bad)">✘ ${e.salah}</span>${e.kosong?` · kosong ${e.kosong}`:''}</span></div>
       <div style="display:flex;align-items:center;gap:10px"><span class="big">${e.nilai}</span><button data-h="${i}">Lihat</button></div></div>`; }).join('')+`</div>`;
-  app.innerHTML=h; bindTabs(); window.scrollTo(0,0);
+  app.innerHTML=h; bindTabs(); bindView(hist); window.scrollTo(0,0);
   app.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{
     const e=H[+b.dataset.h], items=e.items.filter(x=>BYID[x.id]);
     if(!items.length) return;
@@ -509,20 +567,20 @@ function hist(){
 
 function bankSalah(){
   if(!page()) return;
-  const wb=getSalah(), qs=BANK.filter(q=>wb[q.id]);
-  let h = tabs('salah') + `<h2 style="margin-top:12px">❌ Bank Soal Salah (${qs.length})</h2>
-    <div class="card muted" style="font-size:15px">Setiap soal yang dijawab salah otomatis masuk ke sini. Kerjakan ulang; kalau sudah dijawab <b>benar</b>, soal itu keluar dari bank.</div>`;
+  const V=vu(), own=V===USER, wb=getSalah(HV()), qs=BANK.filter(q=>wb[q.id]);
+  let h = tabs('salah') + viewBar() + `<h2 style="margin-top:12px">❌ Bank Soal Salah${own?'':' '+esc(V)} (${qs.length})</h2>
+    <div class="card muted" style="font-size:15px">${own?'Setiap soal yang dijawab salah otomatis masuk ke sini. Kerjakan ulang; kalau sudah dijawab <b>benar</b>, soal itu keluar dari bank.':'Tampilan pantauan (hanya lihat): daftar soal yang masih salah milik '+esc(V)+'.'}</div>`;
   if(!qs.length) h+=`<div class="card" style="margin-top:12px">🎉 Bank soal salah kosong. Mantap!</div>`;
   else {
-    h+=`<div class="row"><button class="pri" data-sk="0">Kerjakan semua (${qs.length} soal, acak)</button></div><div class="grid" style="margin-top:12px">`;
+    h+=(own?`<div class="row"><button class="pri" data-sk="0">Kerjakan semua (${qs.length} soal, acak)</button></div>`:'')+`<div class="grid" style="margin-top:12px">`;
     for(const k of Object.keys(window.KLASTER)){ const n=qs.filter(q=>q.klaster==k).length; if(!n) continue;
       h+=`<div class="card"><b>K${k}. ${window.KLASTER[k]}</b><div class="muted" style="font-size:14px">${n} soal salah · ${qs.filter(q=>q.klaster==k&&q.level==='olimpiade').length} olimpiade</div>
-        <div class="row" style="margin-top:8px"><button data-sk="${k}">Kerjakan ulang</button></div></div>`; }
+        ${own?`<div class="row" style="margin-top:8px"><button data-sk="${k}">Kerjakan ulang</button></div>`:''}</div>`; }
     h+=`</div><h2>Paling sering salah</h2><div class="card">`+[...qs].sort((a,b)=>wb[b.id].n-wb[a.id].n||wb[b.id].t-wb[a.id].t).slice(0,10)
       .map(q=>`<div class="hrow"><span><span class="chip">K${q.klaster}</span>${q.level==='olimpiade'?'<span class="chip olim">⭐</span>':''}Paket ${q.paket} no. ${q.no}</span><span class="muted">salah ${wb[q.id].n}×</span></div>`).join('')+`</div>`;
   }
-  app.innerHTML=h; bindTabs(); window.scrollTo(0,0);
-  app.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>start('latihan',+b.dataset.sk,'salah'));
+  app.innerHTML=h; bindTabs(); bindView(bankSalah); window.scrollTo(0,0);
+  if(own) app.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>start('latihan',+b.dataset.sk,'salah'));
 }
 
 function result(){
@@ -540,11 +598,11 @@ function result(){
    <div class="card"><b>Per Klaster</b>${grp(q=>q.klaster,g=>'K'+g+'. '+window.KLASTER[g])}</div>
    <div class="card"><b>Per Jenis Soal</b>${grp(q=>q.level==='olimpiade'?'olim':q.tipe,g=>g==='olim'?'⭐ Olimpiade':SEC[g].slice(3))}</div>
   </div>
-  <div class="row"><button class="pri" id="rev">Lihat Pembahasan Semua Soal</button><button id="again">Ulangi</button></div>`;
+  <div class="row"><button class="pri" id="rev">Lihat Pembahasan Semua Soal</button>${S.fromHist?'':'<button id="again">Ulangi</button>'}</div>`;
   app.innerHTML=h; window.scrollTo(0,0);
   $('#back').onclick=S.fromHist?hist:home;
   $('#rev').onclick=()=>{S.done=true;S.i=0;render();};
-  $('#again').onclick=()=>start(S.mode,S.val,S.sub);
+  if($('#again')) $('#again').onclick=()=>start(S.mode,S.val,S.sub);
 }
 
 if(!BANK.length) app.innerHTML='<div class="card">Bank soal belum tersedia. Jalankan <code>python build.py</code>.</div>'; else boot();
