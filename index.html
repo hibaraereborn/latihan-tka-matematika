@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Latihan TKA Matematika</title>
+<!-- KaTeX lokal (vendor/) agar bisa offline; versi 0.16.11 -->
+<link rel="stylesheet" href="vendor/katex/katex.min.css">
+<script defer src="vendor/katex/katex.min.js"></script>
+<script defer src="vendor/katex/contrib/auto-render.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7fb; --card:#fff; --ink:#1d2433; --muted:#5d6678; --line:#e3e6ee;
+  --pri:#2f6fed; --pri-soft:#e8f0ff; --ok:#1f9d55; --ok-soft:#e3f6ea;
+  --bad:#d64545; --bad-soft:#fde8e8; --olim:#b4570b; --olim-soft:#fff1e0;
+  --shadow:0 2px 10px rgba(20,30,60,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151d; --card:#1a202b; --ink:#e7ebf3; --muted:#9aa4b8; --line:#2b3342;
+    --pri:#6b9bff; --pri-soft:#1f2b45; --ok:#4cc47f; --ok-soft:#173326;
+    --bad:#ff7a7a; --bad-soft:#3a1d1f; --olim:#ffb35c; --olim-soft:#3a2a15;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151d; --card:#1a202b; --ink:#e7ebf3; --muted:#9aa4b8; --line:#2b3342;
+  --pri:#6b9bff; --pri-soft:#1f2b45; --ok:#4cc47f; --ok-soft:#173326;
+  --bad:#ff7a7a; --bad-soft:#3a1d1f; --olim:#ffb35c; --olim-soft:#3a2a15;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Nunito,system-ui,sans-serif;font-size:17px;line-height:1.55}
+.wrap{max-width:900px;margin:0 auto;padding:16px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0 16px}
+header h1{font-size:22px;margin:0;font-weight:800}
+header h1 span{color:var(--pri)}
+button{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:8px 14px}
+button.pri{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:700}
+button:disabled{opacity:.45;cursor:not-allowed}
+h2{font-size:19px;margin:26px 0 10px}
+.muted{color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:var(--shadow)}
+.tile{cursor:pointer;transition:transform .1s}
+.tile:hover{transform:translateY(-2px);border-color:var(--pri)}
+.tile b{display:block;font-size:18px}
+.tile small{color:var(--muted)}
+.chip{display:inline-block;font-size:12.5px;font-weight:700;padding:2px 9px;border-radius:99px;background:var(--pri-soft);color:var(--pri);margin-right:6px}
+.chip.olim{background:var(--olim-soft);color:var(--olim)}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:10px;justify-content:space-between;margin-bottom:12px}
+.timer{font-weight:800;font-variant-numeric:tabular-nums}
+.timer.low{color:var(--bad)}
+.stim{background:var(--pri-soft);border-left:4px solid var(--pri);padding:10px 14px;border-radius:8px;margin:10px 0}
+.q{font-size:18px;margin:10px 0 14px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;margin:8px 0;cursor:pointer;background:var(--card)}
+.opt:hover{border-color:var(--pri)}
+.opt.sel{border-color:var(--pri);background:var(--pri-soft)}
+.opt.ok{border-color:var(--ok);background:var(--ok-soft)}
+.opt.bad{border-color:var(--bad);background:var(--bad-soft)}
+.opt input{margin-top:5px;accent-color:var(--pri)}
+.opt .let{font-weight:800;min-width:20px}
+table.t,table.kat{border-collapse:collapse;width:100%;margin:8px 0;font-size:16px}
+table.t td,table.t th,table.kat td,table.kat th{border:1px solid var(--line);padding:6px 9px;text-align:left}
+table.t th,table.kat th{background:var(--pri-soft)}
+table.kat td.c{text-align:center;width:90px}
+table.kat tr.ok td{background:var(--ok-soft)} table.kat tr.bad td{background:var(--bad-soft)}
+.tablewrap{overflow-x:auto}
+.nav{display:flex;flex-wrap:wrap;gap:6px;margin-top:16px}
+.nav button{width:42px;padding:6px 0;font-weight:700}
+.nav button.done{background:var(--pri-soft);border-color:var(--pri)}
+.nav button.cur{outline:2px solid var(--pri)}
+.nav button.ok{background:var(--ok-soft);border-color:var(--ok)}
+.nav button.bad{background:var(--bad-soft);border-color:var(--bad)}
+.pemb{margin-top:14px;padding:12px 14px;border-radius:10px;border:1px dashed var(--line);background:var(--bg)}
+.pemb h4{margin:0 0 6px}
+.verdict{font-weight:800;margin-top:12px}
+.verdict.ok{color:var(--ok)} .verdict.bad{color:var(--bad)}
+.score{font-size:46px;font-weight:800;color:var(--pri);line-height:1}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.meter{height:9px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:4px}
+.meter i{display:block;height:100%;background:var(--pri)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+.hide{display:none!important}
+.hint{font-size:14px;color:var(--muted);margin-bottom:6px}
+.pemb,.opt>span{min-width:0;max-width:100%;overflow-x:auto}
+.stim,.q,.pemb,.opt>span{overflow-wrap:anywhere}
+.bar{position:sticky;top:0;background:var(--bg);z-index:5;padding:8px 0}
+@media (max-width:560px){body{font-size:16px}.q{font-size:17px}header h1{font-size:19px}
+  table.kat td.c,table.kat th.c{width:62px;font-size:13.5px;padding:4px}}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.tabs button.on{background:var(--pri);border-color:var(--pri);color:#fff;font-weight:700}
+.user{display:flex;align-items:center;gap:8px;font-size:14.5px}
+.login{max-width:380px;margin:40px auto}
+.login input{width:100%;font:inherit;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin:4px 0 12px}
+.err{color:var(--bad);font-weight:700;min-height:1.4em}
+.stat{text-align:center}.stat .v{font-size:32px;font-weight:800;line-height:1.1}
+.stat.ok .v{color:var(--ok)}.stat.bad .v{color:var(--bad)}.stat .v.p{color:var(--pri)}
+.hrow{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.hrow+.hrow{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
+.big{font-size:22px;font-weight:800;color:var(--pri);min-width:48px;text-align:right}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📐 Latihan <span>TKA Matematika</span></h1>
+    <div class="user"><span id="who"></span><button id="outBtn" class="hide">Keluar</button><button id="themeBtn" title="Ganti tema">🌓</button></div>
+  </header>
+  <main id="app"></main>
+</div>
+<div id="modal" class="modal hide"><div class="card" style="max-width:420px">
+  <p id="modalText" style="margin-top:0"></p>
+  <div class="row" style="justify-content:flex-end"><button id="mNo">Kembali</button><button class="pri" id="mYes">Ya, kumpulkan</button></div>
+</div></div>
+
+<script src="questions.js"></script>
+<script src="users.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const app = $('#app');
+const LET = ['A','B','C','D','E'];
+const SEC = {pg:'A. Pilihan Ganda', pgk:'B. Pilihan Ganda Kompleks', kategori:'C. Pilihan Ganda Kategori'};
+const DURASI = 75*60;
+const store = {
+  get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+/* ---------- akun (login lokal, data disimpan per akun di perangkat ini) ---------- */
+function sha256(str){
+  const b=[...new TextEncoder().encode(str)], K=[], H=[]; let n=2,c=0;
+  const fr=x=>((x-Math.floor(x))*4294967296)|0;
+  while(c<64){let p=true;for(let d=2;d*d<=n;d++)if(n%d===0){p=false;break;}
+    if(p){if(c<8)H[c]=fr(Math.pow(n,1/2));K[c]=fr(Math.pow(n,1/3));c++;}n++;}
+  const L=b.length*8; b.push(0x80); while(b.length%64!==56) b.push(0);
+  for(let i=7;i>=0;i--) b.push(i>=4?0:(L>>>(i*8))&255);
+  const r=(x,k)=>(x>>>k)|(x<<(32-k));
+  for(let o=0;o<b.length;o+=64){
+    const w=[]; for(let i=0;i<16;i++) w[i]=(b[o+4*i]<<24)|(b[o+4*i+1]<<16)|(b[o+4*i+2]<<8)|b[o+4*i+3];
+    for(let i=16;i<64;i++){const s0=r(w[i-15],7)^r(w[i-15],18)^(w[i-15]>>>3),s1=r(w[i-2],17)^r(w[i-2],19)^(w[i-2]>>>10);w[i]=(w[i-16]+s0+w[i-7]+s1)|0;}
+    let [a,bb,cc,d,e,f,g,h]=H;
+    for(let i=0;i<64;i++){const t1=(h+(r(e,6)^r(e,11)^r(e,25))+((e&f)^(~e&g))+K[i]+w[i])|0,
+      t2=((r(a,2)^r(a,13)^r(a,22))+((a&bb)^(a&cc)^(bb&cc)))|0; h=g;g=f;f=e;e=(d+t1)|0;d=cc;cc=bb;bb=a;a=(t1+t2)|0;}
+    [a,bb,cc,d,e,f,g,h].forEach((v,i)=>H[i]=(H[i]+v)|0);
+  }
+  return H.map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
+}
+const USERS = window.USERS || {};
+let USER = store.get('tka_user',null); if(!USERS[USER]) USER=null;
+const uget=(k,d)=>store.get('u:'+USER+':'+k,d), uset=(k,v)=>store.set('u:'+USER+':'+k,v);
+function login(){
+  clearInterval(tick); S=null; setWho();
+  app.innerHTML=`<div class="card login"><h2 style="margin-top:0">🔐 Masuk</h2>
+   <form id="lf"><label>Username<input id="lu" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
+   <label>Password<input id="lp" type="password" autocomplete="current-password" required></label>
+   <div class="err" id="le"></div><button class="pri" style="width:100%">Masuk</button></form></div>`;
+  $('#lf').onsubmit=ev=>{ ev.preventDefault();
+    const u=$('#lu').value.trim().toLowerCase(), p=$('#lp').value, a=USERS[u];
+    if(a && sha256(a.salt+':'+u+':'+p)===a.hash){ USER=u; store.set('tka_user',u); home(); }
+    else { $('#le').textContent='Username atau password salah.'; $('#lp').value=''; }
+  };
+  $('#lu').focus();
+}
+function setWho(){ $('#who').innerHTML=USER?`👤 <b>${USER}</b>`:''; $('#outBtn').classList.toggle('hide',!USER); }
+$('#outBtn').onclick=()=>{ const out=()=>{USER=null;store.set('tka_user',null);login();};
+  if(S&&S.mode==='ujian'&&!S.done) ask('Keluar akun? Ujian yang sedang berjalan akan hilang.',out,'Ya, keluar'); else out(); };
+
+// tema
+(function(){const t=store.get('theme',null);if(t)document.documentElement.dataset.theme=t;})();
+$('#themeBtn').onclick=()=>{
+  const cur=document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+  const n=cur==='dark'?'light':'dark';document.documentElement.dataset.theme=n;store.set('theme',n);
+};
+function math(el,tries=0){
+  if(window.renderMathInElement) renderMathInElement(el,{delimiters:[{left:'$',right:'$',display:false}],throwOnError:false});
+  else if(tries<40) setTimeout(()=>math(el,tries+1),250);
+}
+window.addEventListener('load',()=>math(app));
+
+const BANK = window.BANK || [];
+const PAKETS = [...new Set(BANK.map(q=>q.paket))].sort((a,b)=>a-b);
+let S = null; // sesi aktif
+let tick = null;
+
+/* ---------- beranda ---------- */
+const BYID = Object.fromEntries(BANK.map(q=>[q.id,q]));
+function tabs(cur){
+  const nS=Object.keys(uget('salah',{})).filter(id=>BYID[id]).length;
+  return `<div class="tabs">`+[['home','🏠 Beranda'],['stat','📊 Statistik'],['hist','🕘 Riwayat'],['salah',`❌ Bank Soal Salah (${nS})`]]
+    .map(([k,t])=>`<button data-tab="${k}" class="${k===cur?'on':''}">${t}</button>`).join('')+`</div>`;
+}
+function bindTabs(){ app.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>({home,stat,hist,salah:bankSalah})[e.dataset.tab]()); }
+function page(){ if(!USER){login();return false;} clearInterval(tick); S=null; setWho(); return true; }
+function home(){
+  if(!page()) return;
+  const best = uget('best',{});
+  let h = tabs('home') + `<div class="card"><b>Halo, ${USER}! 👋</b> Pilih <b>Paket Tryout</b> untuk ujian 30 soal (${DURASI/60} menit), atau
+  <b>Latihan per Klaster</b> untuk berlatih satu materi dengan pembahasan langsung.
+  Soal bertanda <span class="chip olim">⭐ OLIMPIADE</span> adalah soal tantangan.</div>
+  <h2>📝 Paket Tryout (30 soal)</h2><div class="grid">`;
+  for(const p of PAKETS){
+    const n = BANK.filter(q=>q.paket===p).length;
+    const b = best['P'+p];
+    h += `<div class="card tile" data-p="${p}"><b>Paket ${p}</b><small>${n} soal · 6 klaster</small>
+      <div class="muted" style="font-size:14px;margin-top:6px">${b!=null?`Nilai terbaik: <b>${b}</b>`:'Belum dikerjakan'}</div></div>`;
+  }
+  h += `</div><h2>🎯 Latihan per Klaster</h2><div class="grid">`;
+  for(const [k,nm] of Object.entries(window.KLASTER||{})){
+    const qs = BANK.filter(q=>q.klaster==k);
+    const ol = qs.filter(q=>q.level==='olimpiade').length;
+    h += `<div class="card"><b style="display:block;font-size:17px">K${k}. ${nm}</b><small class="muted">${qs.length} soal · ${ol} olimpiade</small>
+      <div class="row" style="margin-top:10px;gap:6px">
+        <button data-k="${k}" data-sub="acak">🎲 Acak 20</button>
+        <button data-k="${k}" data-sub="olim">⭐ Olimpiade</button>
+        <button data-k="${k}" data-sub="semua">Semua</button></div></div>`;
+  }
+  const nOl = BANK.filter(q=>q.level==='olimpiade').length;
+  h += `<div class="card"><b style="display:block;font-size:17px">⭐ Tantangan Olimpiade Campuran</b><small class="muted">20 soal acak dari ${nOl} soal olimpiade semua klaster</small>
+      <div class="row" style="margin-top:10px"><button class="pri" data-k="0" data-sub="olimall">Mulai</button></div></div>`;
+  h += `</div><h2>📌 Format soal (seperti TKA)</h2><div class="card muted" style="font-size:15px">
+  <b>Pilihan Ganda</b>: pilih satu jawaban benar. · <b>Pilihan Ganda Kompleks</b>: pilih <u>semua</u> jawaban yang benar (bisa lebih dari satu). ·
+  <b>Pilihan Ganda Kategori</b>: tentukan Benar/Salah (atau Ya/Tidak, dsb.) untuk setiap pernyataan.
+  Satu soal dinilai benar jika seluruh isiannya tepat.</div>`;
+  app.innerHTML = h; bindTabs();
+  app.querySelectorAll('[data-p]').forEach(e=>e.onclick=()=>start('ujian',+e.dataset.p));
+  app.querySelectorAll('[data-k]').forEach(e=>e.onclick=()=>start('latihan',+e.dataset.k,e.dataset.sub));
+  window.scrollTo(0,0);
+}
+
+/* ---------- sesi ---------- */
+function latTitle(){ if(S.mode==='ujian') return `Paket ${S.val}`; if(S.sub==='olimall') return '⭐ Tantangan Olimpiade';
+  if(S.sub==='salah') return '❌ Bank Soal Salah'+(S.val?` · K${S.val}`:'');
+  return `K${S.val}. ${window.KLASTER[S.val]}`+({acak:' · Acak 20',olim:' · Olimpiade'}[S.sub]||''); }
+function shuffle(a){ a=[...a]; for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function start(mode,val,sub='semua'){
+  let qs;
+  if(mode==='ujian') qs = BANK.filter(q=>q.paket===val).sort((a,b)=>a.no-b.no);
+  else {
+    const wb = uget('salah',{});
+    const pool = sub==='olimall' ? BANK.filter(q=>q.level==='olimpiade') : sub==='salah' ? BANK.filter(q=>wb[q.id]&&(!val||q.klaster===val)) : BANK.filter(q=>q.klaster===val);
+    if(sub==='acak') qs = shuffle(pool.filter(q=>q.level!=='olimpiade')).slice(0,16).concat(shuffle(pool.filter(q=>q.level==='olimpiade')).slice(0,4));
+    else if(sub==='olim') qs = pool.filter(q=>q.level==='olimpiade').sort((a,b)=>a.paket-b.paket);
+    else if(sub==='olimall') qs = shuffle(pool).slice(0,20);
+    else if(sub==='salah') qs = shuffle(pool);
+    else qs = pool.sort((a,b)=>(a.level==='olimpiade')-(b.level==='olimpiade')||a.paket-b.paket||a.id.localeCompare(b.id));
+  }
+  clearInterval(tick);
+  if(!qs.length){ home(); return; }
+  S = {mode,val,sub,qs,i:0,sid:Date.now()+''+Math.random().toString(36).slice(2,6),t0:Date.now(),ans:qs.map(blank),checked:qs.map(()=>false),done:false,left:DURASI,end:Date.now()+DURASI*1000};
+  if(mode==='ujian'){ tick=setInterval(()=>{S.left=Math.round((S.end-Date.now())/1000); const t=$('#timer'); if(t){t.textContent=fmt(S.left); t.classList.toggle('low',S.left<300);} if(S.left<=0) finish();},1000); }
+  render();
+}
+function blank(q){ return q.tipe==='pg'?null : q.tipe==='pgk'?[] : q.pernyataan.map(()=>null); }
+function fmt(s){s=Math.max(0,s);return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');}
+function answered(q,a){ return q.tipe==='pg'?a!==null : q.tipe==='pgk'?a.length>0 : a.every(x=>x!==null); }
+function correct(q,a){
+  if(q.tipe==='pg') return a===q.jawaban;
+  if(q.tipe==='pgk'){ const x=[...a].sort(),y=[...q.jawaban].sort(); return x.length===y.length&&x.every((v,i)=>v===y[i]); }
+  return a.every((v,i)=>v===q.jawaban[i]);
+}
+function keyText(q){
+  if(q.tipe==='pg') return LET[q.jawaban];
+  if(q.tipe==='pgk') return [...q.jawaban].sort().map(i=>LET[i]).join(', ');
+  return q.jawaban.map((v,i)=>`(${i+1}) ${v?q.label[0]:q.label[1]}`).join('; ');
+}
+
+function render(){
+  const q = S.qs[S.i], a = S.ans[S.i];
+  const show = S.done || S.checked[S.i];
+  const title = latTitle();
+  let h = `<div class="bar"><button id="back">← ${S.fromHist?'Riwayat':'Beranda'}</button><b>${title}</b>
+    ${S.mode==='ujian'&&!S.done?`<span class="timer" id="timer">${fmt(S.left)}</span>`:''}</div>`;
+  h += `<div class="card"><div class="muted" style="font-size:14px">Soal ${S.i+1} dari ${S.qs.length}</div>
+    <div style="margin:6px 0">${q.level==='olimpiade'?'<span class="chip olim">⭐ OLIMPIADE</span>':`<span class="chip">${SEC[q.tipe]}</span>`}
+    <span class="chip">K${q.klaster}</span>${S.mode==='latihan'?`<span class="chip">Paket ${q.paket}</span>`:''}</div>`;
+  if(q.stimulus) h += `<div class="stim tablewrap">${q.stimulus}</div>`;
+  h += `<div class="q tablewrap">${q.soal}</div>`;
+  if(q.tipe==='pg'||q.tipe==='pgk'){
+    if(q.tipe==='pgk') h+=`<div class="hint">Pilih semua jawaban yang benar (bisa lebih dari satu).</div>`;
+    q.opsi.forEach((o,k)=>{
+      const sel = q.tipe==='pg'? a===k : a.includes(k);
+      const isKey = q.tipe==='pg'? q.jawaban===k : q.jawaban.includes(k);
+      let cls = sel?'sel':''; if(show){ cls = isKey?'ok':(sel?'bad':''); }
+      h += `<label class="opt ${cls}"><input type="${q.tipe==='pg'?'radio':'checkbox'}" name="o" data-k="${k}" ${sel?'checked':''} ${show?'disabled':''}>
+        <span class="let">${LET[k]}.</span><span>${o}</span></label>`;
+    });
+  } else {
+    h += `<div class="tablewrap"><table class="kat"><tr><th>Pernyataan</th><th class="c">${q.label[0]}</th><th class="c">${q.label[1]}</th></tr>`;
+    q.pernyataan.forEach((p,r)=>{
+      const cls = show ? (a[r]===q.jawaban[r]?'ok':'bad') : '';
+      h += `<tr class="${cls}"><td>${p}</td>` + [true,false].map(v=>`<td class="c"><input type="radio" name="r${r}" data-r="${r}" data-v="${v}" ${a[r]===v?'checked':''} ${show?'disabled':''}></td>`).join('') + `</tr>`;
+    });
+    h += `</table></div>`;
+  }
+  if(show){
+    const ok = correct(q,a);
+    h += `<div class="verdict ${ok?'ok':'bad'}">${ok?'✅ Benar!':'❌ Belum tepat.'} Kunci: ${keyText(q)}</div>
+      <div class="pemb"><h4>Pembahasan</h4>${q.pembahasan}</div>`;
+  }
+  h += `<div class="row" style="justify-content:space-between">
+    <button id="prev" ${S.i===0?'disabled':''}>← Sebelumnya</button>
+    ${S.mode==='latihan'&&!S.checked[S.i]&&!S.done?`<button class="pri" id="check" ${answered(q,a)?'':'disabled'}>Cek Jawaban</button>`:''}
+    ${S.i<S.qs.length-1?`<button id="next">Berikutnya →</button>`:(S.mode==='ujian'&&!S.done?`<button class="pri" id="fin">Kumpulkan</button>`:(S.mode==='latihan'?`<button class="pri" id="sum">Lihat Hasil</button>`:''))}
+  </div></div>`;
+  // navigator
+  h += `<div class="nav">` + S.qs.map((qq,k)=>{
+    let c = answered(qq,S.ans[k])?'done':'';
+    if(S.done||S.checked[k]) c = correct(qq,S.ans[k])?'ok':'bad';
+    return `<button class="${c} ${k===S.i?'cur':''}" data-n="${k}">${k+1}</button>`;
+  }).join('') + `</div>`;
+  if(S.mode==='ujian'&&!S.done) h+=`<div class="row"><button class="pri" id="fin2">Kumpulkan Jawaban</button></div>`;
+  if(S.done) h+=`<div class="row"><button class="pri" id="res">Lihat Nilai</button></div>`;
+  app.innerHTML = h; math(app);
+
+  // events
+  $('#back').onclick = ()=>{ if(S.mode==='ujian'&&!S.done) ask('Keluar dari ujian? Jawaban akan hilang.',home,'Ya, keluar'); else if(S.fromHist) hist(); else home(); };
+  app.querySelectorAll('input[data-k]').forEach(e=>e.onchange=()=>{
+    const k=+e.dataset.k;
+    if(q.tipe==='pg') S.ans[S.i]=k; else { const s=new Set(S.ans[S.i]); e.checked?s.add(k):s.delete(k); S.ans[S.i]=[...s]; }
+    keep();
+  });
+  app.querySelectorAll('input[data-r]').forEach(e=>e.onchange=()=>{ S.ans[S.i][+e.dataset.r]=e.dataset.v==='true'; keep(); });
+  app.querySelectorAll('[data-n]').forEach(e=>e.onclick=()=>{S.i=+e.dataset.n;render();window.scrollTo(0,0);});
+  const on=(id,f)=>{const e=$(id); if(e) e.onclick=f;};
+  on('#prev',()=>{S.i--;render();window.scrollTo(0,0);});
+  on('#next',()=>{S.i++;render();window.scrollTo(0,0);});
+  on('#check',()=>{S.checked[S.i]=true; track(q,S.ans[S.i]); saveHist(); keep();});
+  on('#sum',result);
+  on('#res',result);
+  const fin=()=>{ const kosong=S.qs.filter((qq,k)=>!answered(qq,S.ans[k])).length;
+    ask(kosong?`Masih ada ${kosong} soal belum dijawab. Tetap kumpulkan?`:'Kumpulkan semua jawaban sekarang?',finish); };
+  on('#fin',fin); on('#fin2',fin);
+}
+
+function keep(){ const y=window.scrollY; render(); window.scrollTo(0,y); }
+function ask(text,yes,yesLabel='Ya, kumpulkan'){
+  $('#modalText').textContent=text; $('#mYes').textContent=yesLabel; $('#mNo').classList.remove('hide'); $('#modal').classList.remove('hide');
+  $('#mNo').onclick=()=>$('#modal').classList.add('hide');
+  $('#mYes').onclick=()=>{$('#modal').classList.add('hide');yes();};
+}
+function finish(){ clearInterval(tick); $('#modal').classList.add('hide'); if(!S||S.done) return; S.done=true;
+  S.qs.forEach((q,k)=>{ if(answered(q,S.ans[k])) track(q,S.ans[k]); });
+  const nilai=Math.round(S.qs.filter((q,k)=>correct(q,S.ans[k])).length/S.qs.length*100);
+  const b=uget('best',{}); b['P'+S.val]=Math.max(b['P'+S.val]||0,nilai); uset('best',b);
+  saveHist(); result(); }
+
+/* ---------- pencatatan: bank soal salah & riwayat ---------- */
+function track(q,a){ const wb=uget('salah',{});
+  if(correct(q,a)) delete wb[q.id]; else wb[q.id]={n:((wb[q.id]||{}).n||0)+1,t:Date.now()};
+  uset('salah',wb); }
+function saveHist(){
+  const idx = S.qs.map((q,k)=>k).filter(k=>S.mode==='ujian'||S.checked[k]);
+  if(!idx.length) return;
+  const items = idx.map(k=>({id:S.qs[k].id,a:S.ans[k]}));
+  const benar = idx.filter(k=>correct(S.qs[k],S.ans[k])).length, kosong = idx.filter(k=>!answered(S.qs[k],S.ans[k])).length;
+  const e = {sid:S.sid,t:S.t0,te:Date.now(),judul:latTitle(),mode:S.mode,sub:S.sub,val:S.val,n:S.qs.length,items,
+    benar,salah:idx.length-benar-kosong,kosong,nilai:Math.round(benar/idx.length*100)};
+  const h=uget('hist',[]), i=h.findIndex(x=>x.sid===S.sid); if(i>=0) h[i]=e; else h.unshift(e);
+  uset('hist',h.slice(0,1000));
+}
+function allItems(){ // semua jawaban yang tercatat: [{q,a,ok,kosong}]
+  const out=[]; for(const e of uget('hist',[])) for(const it of e.items){ const q=BYID[it.id]; if(!q) continue;
+    const kosong=!answered(q,it.a); out.push({q,a:it.a,kosong,ok:!kosong&&correct(q,it.a)}); }
+  return out;
+}
+const tgl=t=>new Date(t).toLocaleString('id-ID',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const bars=(rows)=>rows.map(([nm,b,t])=>`<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;gap:8px"><span>${nm}</span><b>${b}/${t}${t?` (${Math.round(b/t*100)}%)`:''}</b></div><div class="meter"><i style="width:${t?b/t*100:0}%"></i></div></div>`).join('');
+
+function stat(){
+  if(!page()) return;
+  const it=allItems(), dik=it.filter(x=>!x.kosong), benar=dik.filter(x=>x.ok).length, salah=dik.length-benar;
+  const unik=new Set(dik.map(x=>x.q.id)).size, H=uget('hist',[]);
+  const box=(cls,v,lbl,p='')=>`<div class="card stat ${cls}"><div class="v ${p}">${v}</div><div class="muted">${lbl}</div></div>`;
+  let h = tabs('stat') + `<div class="grid">${box('',dik.length,'Total soal dikerjakan','p')}${box('ok',benar,'Total benar')}${box('bad',salah,'Total salah')}
+    ${box('',dik.length?Math.round(benar/dik.length*100)+'%':'-','Ketepatan','p')}</div>
+    <div class="muted" style="margin:10px 2px;font-size:15px">${unik} dari ${BANK.length} soal berbeda sudah pernah dikerjakan · ${H.length} sesi latihan/ujian ·
+    ${it.length-dik.length} soal dibiarkan kosong saat ujian (tidak dihitung).</div>`;
+  if(dik.length){
+    const g=(kf)=>{const m={}; dik.forEach(x=>{const k=kf(x.q); m[k]=m[k]||[0,0]; m[k][1]++; if(x.ok) m[k][0]++;}); return m;};
+    const mk=g(q=>q.klaster), mt=g(q=>q.level==='olimpiade'?'olim':q.tipe);
+    h += `<div class="grid" style="margin-top:4px"><div class="card"><b>Per Klaster (benar/dikerjakan)</b>${bars(Object.keys(window.KLASTER).filter(k=>mk[k]).map(k=>['K'+k+'. '+window.KLASTER[k],...mk[k]]))}</div>
+      <div class="card"><b>Per Jenis Soal</b>${bars(['pg','pgk','kategori','olim'].filter(k=>mt[k]).map(k=>[k==='olim'?'⭐ Olimpiade':SEC[k].slice(3),...mt[k]]))}</div></div>`;
+  }
+  const best=uget('best',{}), done=PAKETS.filter(p=>best['P'+p]!=null);
+  h += `<h2>📝 Nilai terbaik paket tryout (${done.length}/${PAKETS.length})</h2><div class="card">${done.length?done.map(p=>`<div class="hrow"><span>Paket ${p}</span><b>${best['P'+p]}</b></div>`).join(''):'<span class="muted">Belum ada paket tryout yang dikerjakan.</span>'}</div>
+    <div class="row"><button id="reset">🗑️ Hapus semua data akun ini</button></div>`;
+  app.innerHTML=h; bindTabs(); window.scrollTo(0,0);
+  $('#reset').onclick=()=>ask(`Hapus SEMUA statistik, riwayat, bank soal salah, dan nilai milik ${USER}? Tidak bisa dibatalkan.`,
+    ()=>{ uset('hist',[]); uset('salah',{}); uset('best',{}); stat(); },'Ya, hapus');
+}
+
+function hist(){
+  if(!page()) return;
+  const H=uget('hist',[]);
+  let h = tabs('hist') + `<h2 style="margin-top:12px">🕘 Riwayat Pengerjaan (${H.length})</h2>`;
+  if(!H.length) h+=`<div class="card muted">Belum ada riwayat. Kerjakan paket tryout atau latihan dulu ya.</div>`;
+  else h+=`<div class="card">`+H.map((e,i)=>{ const dur=Math.max(1,Math.round((e.te-e.t)/60000));
+    return `<div class="hrow"><div style="min-width:0"><b>${e.judul}</b> <span class="chip">${e.mode==='ujian'?'Tryout':'Latihan'}</span><br>
+      <span class="muted" style="font-size:14px">${tgl(e.t)} · ${dur} menit · ${e.items.length}${e.mode==='latihan'?` dari ${e.n}`:''} soal ·
+      <span style="color:var(--ok)">✔ ${e.benar}</span> · <span style="color:var(--bad)">✘ ${e.salah}</span>${e.kosong?` · kosong ${e.kosong}`:''}</span></div>
+      <div style="display:flex;align-items:center;gap:10px"><span class="big">${e.nilai}</span><button data-h="${i}">Lihat</button></div></div>`; }).join('')+`</div>`;
+  app.innerHTML=h; bindTabs(); window.scrollTo(0,0);
+  app.querySelectorAll('[data-h]').forEach(b=>b.onclick=()=>{
+    const e=H[+b.dataset.h], items=e.items.filter(x=>BYID[x.id]);
+    if(!items.length) return;
+    S={mode:e.mode,val:e.val,sub:e.sub,qs:items.map(x=>BYID[x.id]),ans:items.map(x=>x.a),checked:items.map(()=>true),done:true,fromHist:true,i:0,sid:e.sid,left:0};
+    render(); window.scrollTo(0,0);
+  });
+}
+
+function bankSalah(){
+  if(!page()) return;
+  const wb=uget('salah',{}), qs=BANK.filter(q=>wb[q.id]);
+  let h = tabs('salah') + `<h2 style="margin-top:12px">❌ Bank Soal Salah (${qs.length})</h2>
+    <div class="card muted" style="font-size:15px">Setiap soal yang dijawab salah otomatis masuk ke sini. Kerjakan ulang; kalau sudah dijawab <b>benar</b>, soal itu keluar dari bank.</div>`;
+  if(!qs.length) h+=`<div class="card" style="margin-top:12px">🎉 Bank soal salah kosong. Mantap!</div>`;
+  else {
+    h+=`<div class="row"><button class="pri" data-sk="0">Kerjakan semua (${qs.length} soal, acak)</button></div><div class="grid" style="margin-top:12px">`;
+    for(const k of Object.keys(window.KLASTER)){ const n=qs.filter(q=>q.klaster==k).length; if(!n) continue;
+      h+=`<div class="card"><b>K${k}. ${window.KLASTER[k]}</b><div class="muted" style="font-size:14px">${n} soal salah · ${qs.filter(q=>q.klaster==k&&q.level==='olimpiade').length} olimpiade</div>
+        <div class="row" style="margin-top:8px"><button data-sk="${k}">Kerjakan ulang</button></div></div>`; }
+    h+=`</div><h2>Paling sering salah</h2><div class="card">`+[...qs].sort((a,b)=>wb[b.id].n-wb[a.id].n||wb[b.id].t-wb[a.id].t).slice(0,10)
+      .map(q=>`<div class="hrow"><span><span class="chip">K${q.klaster}</span>${q.level==='olimpiade'?'<span class="chip olim">⭐</span>':''}Paket ${q.paket} no. ${q.no}</span><span class="muted">salah ${wb[q.id].n}×</span></div>`).join('')+`</div>`;
+  }
+  app.innerHTML=h; bindTabs(); window.scrollTo(0,0);
+  app.querySelectorAll('[data-sk]').forEach(b=>b.onclick=()=>start('latihan',+b.dataset.sk,'salah'));
+}
+
+function result(){
+  const qs=S.qs, items = S.mode==='latihan' ? qs.map((q,k)=>k).filter(k=>S.checked[k]) : qs.map((q,k)=>k);
+  if(!items.length){ ask('Belum ada soal yang dicek. Jawab dan tekan "Cek Jawaban" dulu ya.',()=>{},'Oke'); $('#mNo').classList.add('hide'); return; }
+  $('#mNo').classList.remove('hide');
+  const benar = items.filter(k=>correct(qs[k],S.ans[k])).length;
+  const nilai = items.length? Math.round(benar/items.length*100):0;
+  const grp=(keyf,namef)=>{ const m={}; items.forEach(k=>{const g=keyf(qs[k]); m[g]=m[g]||[0,0]; m[g][1]++; if(correct(qs[k],S.ans[k])) m[g][0]++;});
+    return Object.entries(m).map(([g,[b,t]])=>`<div style="margin:8px 0"><div style="display:flex;justify-content:space-between"><span>${namef(g)}</span><b>${b}/${t}</b></div><div class="meter"><i style="width:${b/t*100}%"></i></div></div>`).join(''); };
+  let msg = nilai>=90?'Luar biasa! 🏆':nilai>=75?'Hebat, sudah siap! 🎉':nilai>=60?'Bagus, terus berlatih! 💪':'Ayo pelajari pembahasannya lagi 📚';
+  let h = `<div class="bar"><button id="back">← ${S.fromHist?'Riwayat':'Beranda'}</button><b>Hasil ${latTitle()}</b><span></span></div>
+  <div class="card" style="text-align:center"><div class="score">${nilai}</div><div class="muted">Benar ${benar} dari ${items.length} soal</div><div style="margin-top:6px;font-weight:700">${msg}</div></div>
+  <div class="grid" style="margin-top:12px">
+   <div class="card"><b>Per Klaster</b>${grp(q=>q.klaster,g=>'K'+g+'. '+window.KLASTER[g])}</div>
+   <div class="card"><b>Per Jenis Soal</b>${grp(q=>q.level==='olimpiade'?'olim':q.tipe,g=>g==='olim'?'⭐ Olimpiade':SEC[g].slice(3))}</div>
+  </div>
+  <div class="row"><button class="pri" id="rev">Lihat Pembahasan Semua Soal</button><button id="again">Ulangi</button></div>`;
+  app.innerHTML=h; window.scrollTo(0,0);
+  $('#back').onclick=S.fromHist?hist:home;
+  $('#rev').onclick=()=>{S.done=true;S.i=0;render();};
+  $('#again').onclick=()=>start(S.mode,S.val,S.sub);
+}
+
+if(!BANK.length) app.innerHTML='<div class="card">Bank soal belum tersedia. Jalankan <code>python build.py</code>.</div>'; else if(!Object.keys(USERS).length) app.innerHTML='<div class="card">Data akun belum ada. Jalankan <code>python tools/set_password.py</code>.</div>'; else home();
+</script>
+</body>
+</html>
