@@ -116,7 +116,8 @@ table.kat tr.ok td{background:var(--ok-soft)} table.kat tr.bad td{background:var
 </div></div>
 
 <script src="questions.js"></script>
-<script src="users.js"></script>
+<script src="config.js"></script>
+<script src="vendor/supabase/supabase.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const app = $('#app');
@@ -127,7 +128,12 @@ const store = {
   get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},
   set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
-/* ---------- akun (login lokal, data disimpan per akun di perangkat ini) ---------- */
+/* ---------- akun (dicek di halaman ini) & sinkron data ke Supabase ----------
+   Akun & password: daftar USERS di bawah (hash SHA-256 + salt).
+   Ganti password: python tools/set_password.py <user> <password>
+   Data: tabel public.sesi (username, id, data) di Supabase, 1 baris per sesi (lihat supabase.sql).
+   localStorage = cache + antrean kalau sedang offline. */
+const USERS = /*USERS*/{"devtriana": {"salt": "981167c77017e000", "hash": "a3164278d2d28730d97380816149d24f0721c6178fcc3fb066f7563bf50eb71c"}, "bimbandev": {"salt": "22339ad7f0d73fbe", "hash": "f8440088160592794c8a37734313975955976b4ea49e4fd8f6abd261b0ba4f9e"}, "deviana": {"salt": "2e73a9e591d1b96c", "hash": "7641a927159733af1bb745f7224cb6318449ce12a8dbc9e918574588380d2691"}}/*/USERS*/;
 function sha256(str){
   const b=[...new TextEncoder().encode(str)], K=[], H=[]; let n=2,c=0;
   const fr=x=>((x-Math.floor(x))*4294967296)|0;
@@ -146,25 +152,86 @@ function sha256(str){
   }
   return H.map(x=>(x>>>0).toString(16).padStart(8,'0')).join('');
 }
-const USERS = window.USERS || {};
-let USER = store.get('tka_user',null); if(!USERS[USER]) USER=null;
-const uget=(k,d)=>store.get('u:'+USER+':'+k,d), uset=(k,v)=>store.set('u:'+USER+':'+k,v);
+const CFG = window.TKA_CONFIG || {};
+const sb = (window.supabase && CFG.url && CFG.key) ? window.supabase.createClient(CFG.url, CFG.key, {auth:{persistSession:false,autoRefreshToken:false}}) : null;
+let USER = null, UID = null, RESET_AT = 0, lastPull = 0;   // UID = username (kunci data di cloud)
+const esc = x => String(x).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const kget=(u,k,d)=>store.get('u:'+u+':'+k,d), kset=(u,k,v)=>store.set('u:'+u+':'+k,v);
+const uget=(k,d)=>kget(USER,k,d), uset=(k,v)=>kset(USER,k,v);
+function setUser(u){ USER = u || null; UID = USER; store.set('tka_user', USER); setWho(); }
 function login(){
   clearInterval(tick); S=null; setWho();
   app.innerHTML=`<div class="card login"><h2 style="margin-top:0">🔐 Masuk</h2>
    <form id="lf"><label>Username<input id="lu" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
    <label>Password<input id="lp" type="password" autocomplete="current-password" required></label>
-   <div class="err" id="le"></div><button class="pri" style="width:100%">Masuk</button></form></div>`;
+   <div class="err" id="le"></div><button class="pri" id="lb" style="width:100%">Masuk</button></form></div>`;
   $('#lf').onsubmit=ev=>{ ev.preventDefault();
     const u=$('#lu').value.trim().toLowerCase(), p=$('#lp').value, a=USERS[u];
-    if(a && sha256(a.salt+':'+u+':'+p)===a.hash){ USER=u; store.set('tka_user',u); home(); }
-    else { $('#le').textContent='Username atau password salah.'; $('#lp').value=''; }
+    if(a && sha256(a.salt+':'+u+':'+p)===a.hash){ setUser(u); home(); pull(true); }
+    else { $('#le').textContent='❌ Login gagal: username atau password salah.'; $('#lp').value=''; $('#lp').focus(); }
   };
   $('#lu').focus();
 }
-function setWho(){ $('#who').innerHTML=USER?`👤 <b>${USER}</b>`:''; $('#outBtn').classList.toggle('hide',!USER); }
-$('#outBtn').onclick=()=>{ const out=()=>{USER=null;store.set('tka_user',null);login();};
+function setWho(){ $('#who').innerHTML=USER?`<span id="sync" title="Status penyimpanan"></span> 👤 <b>${esc(USER)}</b>`:''; $('#outBtn').classList.toggle('hide',!USER); showSync(); }
+let SYNC = 'ok';
+function showSync(st){ if(st) SYNC=st; const e=$('#sync'); if(!e) return;
+  if(!sb){ e.textContent='💾'; e.title='Tersimpan di perangkat ini saja (Supabase belum disetel)'; return; }
+  e.textContent = {ok:'☁️', busy:'⏳', off:'⚠️'}[SYNC];
+  e.title = {ok:'Tersimpan di cloud', busy:'Menyimpan...', off:'Offline: tersimpan di perangkat, akan dikirim otomatis saat online'}[SYNC]; }
+$('#outBtn').onclick=()=>{
+  const out=async()=>{ try{ await push(); }catch(e){} setUser(null); login(); };
   if(S&&S.mode==='ujian'&&!S.done) ask('Keluar akun? Ujian yang sedang berjalan akan hilang.',out,'Ya, keluar'); else out(); };
+
+// ambil semua sesi akun ini dari cloud lalu gabungkan dengan cache lokal (dibatasi tiap 20 detik kecuali force)
+async function pull(force){
+  if(!UID || !sb) return;
+  if(!force && Date.now()-lastPull<20000) return;
+  lastPull=Date.now();
+  const me=USER, t0=Date.now();
+  showSync('busy');
+  try{
+    const rows=[]; for(let from=0;;from+=1000){
+      const {data,error}=await sb.from('sesi').select('data').eq('username',me).order('id').range(from,from+999);
+      if(error) throw error; rows.push(...data); if(data.length<1000) break; }
+    if(me!==USER || t0<RESET_AT) return;          // akun berganti / data direset selama mengambil
+    // cloud = sumber utama; sesi lokal yang belum terkirim / baru disimpan selama mengambil tetap dipakai
+    const pend=kget(me,'pending',{}), loc=kget(me,'hist',[]), m=new Map(), old=JSON.stringify(loc);
+    rows.forEach(r=>{ const d=r.data; if(d&&d.sid&&Array.isArray(d.items)&&typeof d.te==='number') m.set(d.sid,d); });
+    loc.forEach(e=>{ if(pend[e.sid] || e.te>=t0) m.set(e.sid,e); });
+    const h=[...m.values()].sort((a,b)=>b.t-a.t);
+    kset(me,'hist',h);
+    await push();
+    if(!S && USER===me && JSON.stringify(h)!==old) ({home,stat,hist,salah:bankSalah})[CUR]();
+    else showSync();
+  }catch(e){ if(me===USER) showSync('off'); }
+}
+let pushing=null;
+function push(){
+  if(!UID || !sb) return Promise.resolve();
+  if(pushing) return pushing;
+  const me=USER;
+  pushing = (async()=>{
+    const pend=kget(me,'pending',{}), H=kget(me,'hist',[]), have=new Set(H.map(e=>e.sid));
+    Object.keys(pend).forEach(k=>{ if(!have.has(k)) delete pend[k]; }); kset(me,'pending',pend);
+    const rows=H.filter(e=>pend[e.sid]).map(e=>({username:me,id:e.sid,data:e,updated_at:new Date().toISOString()}));
+    if(!rows.length){ showSync('ok'); return; }
+    showSync('busy');
+    const {error}=await sb.from('sesi').upsert(rows,{onConflict:'username,id'});
+    if(error) throw error;
+    const now=kget(me,'pending',{}); rows.forEach(r=>{ if(now[r.id]===r.data.te) delete now[r.id]; }); kset(me,'pending',now);
+    if(me!==USER) return;
+    const left=Object.keys(now).length; showSync(left?'busy':'ok');
+    if(left) setTimeout(()=>push(),500);
+  })().catch(()=>{ if(me===USER) showSync('off'); }).finally(()=>{pushing=null;});
+  return pushing;
+}
+setInterval(()=>{ if(UID && Object.keys(uget('pending',{})).length) push(); },30000);
+addEventListener('online',()=>{ if(UID) pull(true); });
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&UID&&!S) pull(); });
+function boot(){
+  const u=store.get('tka_user',null);
+  if(USERS[u]){ setUser(u); home(); pull(true); } else login();
+}
 
 // tema
 (function(){const t=store.get('theme',null);if(t)document.documentElement.dataset.theme=t;})();
@@ -185,17 +252,26 @@ let tick = null;
 
 /* ---------- beranda ---------- */
 const BYID = Object.fromEntries(BANK.map(q=>[q.id,q]));
+let CUR='home';
+// bank soal salah & nilai terbaik dihitung dari riwayat (riwayat = satu-satunya data yang disimpan)
+function getSalah(){ const wb={};
+  for(const e of [...uget('hist',[])].sort((a,b)=>a.te-b.te)) for(const it of e.items){ const q=BYID[it.id];
+    if(!q||!answered(q,it.a)) continue;
+    if(correct(q,it.a)) delete wb[it.id]; else wb[it.id]={n:((wb[it.id]||{}).n||0)+1,t:e.te}; }
+  return wb; }
+function getBest(){ const b={}; uget('hist',[]).forEach(e=>{ if(e.mode==='ujian') b['P'+e.val]=Math.max(b['P'+e.val]||0,e.nilai); }); return b; }
 function tabs(cur){
-  const nS=Object.keys(uget('salah',{})).filter(id=>BYID[id]).length;
+  CUR=cur;
+  const nS=Object.keys(getSalah()).length;
   return `<div class="tabs">`+[['home','🏠 Beranda'],['stat','📊 Statistik'],['hist','🕘 Riwayat'],['salah',`❌ Bank Soal Salah (${nS})`]]
     .map(([k,t])=>`<button data-tab="${k}" class="${k===cur?'on':''}">${t}</button>`).join('')+`</div>`;
 }
-function bindTabs(){ app.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>({home,stat,hist,salah:bankSalah})[e.dataset.tab]()); }
+function bindTabs(){ app.querySelectorAll('[data-tab]').forEach(e=>e.onclick=()=>{ ({home,stat,hist,salah:bankSalah})[e.dataset.tab](); pull(); }); }
 function page(){ if(!USER){login();return false;} clearInterval(tick); S=null; setWho(); return true; }
 function home(){
   if(!page()) return;
-  const best = uget('best',{});
-  let h = tabs('home') + `<div class="card"><b>Halo, ${USER}! 👋</b> Pilih <b>Paket Tryout</b> untuk ujian 30 soal (${DURASI/60} menit), atau
+  const best = getBest();
+  let h = tabs('home') + `<div class="card"><b>Halo, ${esc(USER)}! 👋</b> Pilih <b>Paket Tryout</b> untuk ujian 30 soal (${DURASI/60} menit), atau
   <b>Latihan per Klaster</b> untuk berlatih satu materi dengan pembahasan langsung.
   Soal bertanda <span class="chip olim">⭐ OLIMPIADE</span> adalah soal tantangan.</div>
   <h2>📝 Paket Tryout (30 soal)</h2><div class="grid">`;
@@ -237,7 +313,7 @@ function start(mode,val,sub='semua'){
   let qs;
   if(mode==='ujian') qs = BANK.filter(q=>q.paket===val).sort((a,b)=>a.no-b.no);
   else {
-    const wb = uget('salah',{});
+    const wb = getSalah();
     const pool = sub==='olimall' ? BANK.filter(q=>q.level==='olimpiade') : sub==='salah' ? BANK.filter(q=>wb[q.id]&&(!val||q.klaster===val)) : BANK.filter(q=>q.klaster===val);
     if(sub==='acak') qs = shuffle(pool.filter(q=>q.level!=='olimpiade')).slice(0,16).concat(shuffle(pool.filter(q=>q.level==='olimpiade')).slice(0,4));
     else if(sub==='olim') qs = pool.filter(q=>q.level==='olimpiade').sort((a,b)=>a.paket-b.paket);
@@ -325,7 +401,7 @@ function render(){
   const on=(id,f)=>{const e=$(id); if(e) e.onclick=f;};
   on('#prev',()=>{S.i--;render();window.scrollTo(0,0);});
   on('#next',()=>{S.i++;render();window.scrollTo(0,0);});
-  on('#check',()=>{S.checked[S.i]=true; track(q,S.ans[S.i]); saveHist(); keep();});
+  on('#check',()=>{S.checked[S.i]=true; saveHist(); keep();});
   on('#sum',result);
   on('#res',result);
   const fin=()=>{ const kosong=S.qs.filter((qq,k)=>!answered(qq,S.ans[k])).length;
@@ -340,15 +416,9 @@ function ask(text,yes,yesLabel='Ya, kumpulkan'){
   $('#mYes').onclick=()=>{$('#modal').classList.add('hide');yes();};
 }
 function finish(){ clearInterval(tick); $('#modal').classList.add('hide'); if(!S||S.done) return; S.done=true;
-  S.qs.forEach((q,k)=>{ if(answered(q,S.ans[k])) track(q,S.ans[k]); });
-  const nilai=Math.round(S.qs.filter((q,k)=>correct(q,S.ans[k])).length/S.qs.length*100);
-  const b=uget('best',{}); b['P'+S.val]=Math.max(b['P'+S.val]||0,nilai); uset('best',b);
   saveHist(); result(); }
 
 /* ---------- pencatatan: bank soal salah & riwayat ---------- */
-function track(q,a){ const wb=uget('salah',{});
-  if(correct(q,a)) delete wb[q.id]; else wb[q.id]={n:((wb[q.id]||{}).n||0)+1,t:Date.now()};
-  uset('salah',wb); }
 function saveHist(){
   const idx = S.qs.map((q,k)=>k).filter(k=>S.mode==='ujian'||S.checked[k]);
   if(!idx.length) return;
@@ -357,7 +427,7 @@ function saveHist(){
   const e = {sid:S.sid,t:S.t0,te:Date.now(),judul:latTitle(),mode:S.mode,sub:S.sub,val:S.val,n:S.qs.length,items,
     benar,salah:idx.length-benar-kosong,kosong,nilai:Math.round(benar/idx.length*100)};
   const h=uget('hist',[]), i=h.findIndex(x=>x.sid===S.sid); if(i>=0) h[i]=e; else h.unshift(e);
-  uset('hist',h.slice(0,1000));
+  uset('hist',h); const p=uget('pending',{}); p[e.sid]=e.te; uset('pending',p); push();
 }
 function allItems(){ // semua jawaban yang tercatat: [{q,a,ok,kosong}]
   const out=[]; for(const e of uget('hist',[])) for(const it of e.items){ const q=BYID[it.id]; if(!q) continue;
@@ -382,12 +452,14 @@ function stat(){
     h += `<div class="grid" style="margin-top:4px"><div class="card"><b>Per Klaster (benar/dikerjakan)</b>${bars(Object.keys(window.KLASTER).filter(k=>mk[k]).map(k=>['K'+k+'. '+window.KLASTER[k],...mk[k]]))}</div>
       <div class="card"><b>Per Jenis Soal</b>${bars(['pg','pgk','kategori','olim'].filter(k=>mt[k]).map(k=>[k==='olim'?'⭐ Olimpiade':SEC[k].slice(3),...mt[k]]))}</div></div>`;
   }
-  const best=uget('best',{}), done=PAKETS.filter(p=>best['P'+p]!=null);
+  const best=getBest(), done=PAKETS.filter(p=>best['P'+p]!=null);
   h += `<h2>📝 Nilai terbaik paket tryout (${done.length}/${PAKETS.length})</h2><div class="card">${done.length?done.map(p=>`<div class="hrow"><span>Paket ${p}</span><b>${best['P'+p]}</b></div>`).join(''):'<span class="muted">Belum ada paket tryout yang dikerjakan.</span>'}</div>
     <div class="row"><button id="reset">🗑️ Hapus semua data akun ini</button></div>`;
   app.innerHTML=h; bindTabs(); window.scrollTo(0,0);
   $('#reset').onclick=()=>ask(`Hapus SEMUA statistik, riwayat, bank soal salah, dan nilai milik ${USER}? Tidak bisa dibatalkan.`,
-    ()=>{ uset('hist',[]); uset('salah',{}); uset('best',{}); stat(); },'Ya, hapus');
+    async()=>{ if(pushing) await pushing; const {error}=sb?await sb.from('sesi').delete().eq('username',USER):{};
+      if(error){ ask('Gagal menghapus (cek koneksi internet).',()=>{},'Oke'); $('#mNo').classList.add('hide'); return; }
+      RESET_AT=Date.now(); uset('hist',[]); uset('pending',{}); stat(); },'Ya, hapus');
 }
 
 function hist(){
@@ -396,7 +468,7 @@ function hist(){
   let h = tabs('hist') + `<h2 style="margin-top:12px">🕘 Riwayat Pengerjaan (${H.length})</h2>`;
   if(!H.length) h+=`<div class="card muted">Belum ada riwayat. Kerjakan paket tryout atau latihan dulu ya.</div>`;
   else h+=`<div class="card">`+H.map((e,i)=>{ const dur=Math.max(1,Math.round((e.te-e.t)/60000));
-    return `<div class="hrow"><div style="min-width:0"><b>${e.judul}</b> <span class="chip">${e.mode==='ujian'?'Tryout':'Latihan'}</span><br>
+    return `<div class="hrow"><div style="min-width:0"><b>${esc(e.judul)}</b> <span class="chip">${e.mode==='ujian'?'Tryout':'Latihan'}</span><br>
       <span class="muted" style="font-size:14px">${tgl(e.t)} · ${dur} menit · ${e.items.length}${e.mode==='latihan'?` dari ${e.n}`:''} soal ·
       <span style="color:var(--ok)">✔ ${e.benar}</span> · <span style="color:var(--bad)">✘ ${e.salah}</span>${e.kosong?` · kosong ${e.kosong}`:''}</span></div>
       <div style="display:flex;align-items:center;gap:10px"><span class="big">${e.nilai}</span><button data-h="${i}">Lihat</button></div></div>`; }).join('')+`</div>`;
@@ -411,7 +483,7 @@ function hist(){
 
 function bankSalah(){
   if(!page()) return;
-  const wb=uget('salah',{}), qs=BANK.filter(q=>wb[q.id]);
+  const wb=getSalah(), qs=BANK.filter(q=>wb[q.id]);
   let h = tabs('salah') + `<h2 style="margin-top:12px">❌ Bank Soal Salah (${qs.length})</h2>
     <div class="card muted" style="font-size:15px">Setiap soal yang dijawab salah otomatis masuk ke sini. Kerjakan ulang; kalau sudah dijawab <b>benar</b>, soal itu keluar dari bank.</div>`;
   if(!qs.length) h+=`<div class="card" style="margin-top:12px">🎉 Bank soal salah kosong. Mantap!</div>`;
@@ -449,7 +521,7 @@ function result(){
   $('#again').onclick=()=>start(S.mode,S.val,S.sub);
 }
 
-if(!BANK.length) app.innerHTML='<div class="card">Bank soal belum tersedia. Jalankan <code>python build.py</code>.</div>'; else if(!Object.keys(USERS).length) app.innerHTML='<div class="card">Data akun belum ada. Jalankan <code>python tools/set_password.py</code>.</div>'; else home();
+if(!BANK.length) app.innerHTML='<div class="card">Bank soal belum tersedia. Jalankan <code>python build.py</code>.</div>'; else boot();
 </script>
 </body>
 </html>

@@ -1,1 +1,0 @@
-window.USERS={"devtriana": {"salt": "c82c9e20e2bacb54", "hash": "9a7d28af82c51be90851bd452ee032f1859ca2fd38cbacbab34b92262f9c711c"}, "bimbandev": {"salt": "85f5926656bc346f", "hash": "15a07d0544fb94af9b7f493c378b9f886113f84b4a7f2db4a9c6faec3d878115"}, "deviana": {"salt": "6eea1f3ea060ca90", "hash": "d9b2e60789b77e4ab2b5de0a8dac880d259a58121a69e5ec7d0b6a6748ec10ab"}};
