@@ -100,6 +100,32 @@ table.kat tr.ok td{background:var(--ok-soft)} table.kat tr.bad td{background:var
 .hrow{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
 .hrow+.hrow{border-top:1px solid var(--line);padding-top:10px;margin-top:10px}
 .big{font-size:22px;font-weight:800;color:var(--pri);min-width:48px;text-align:right}
+/* --- perbaikan tampilan HP / tema gelap (halaman akun) --- */
+.login input{border:1.5px solid var(--muted)}
+.login input:focus{outline:none;border-color:var(--pri);box-shadow:0 0 0 3px var(--pri-soft)}
+#who{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user button{min-height:40px}
+.hrow>div:first-child{flex:1 1 220px;min-width:0}
+.hrow>:last-child{margin-left:auto}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) button.pri,:root:not([data-theme="light"]) .tabs button.on{color:#0b1220}
+}
+:root[data-theme="dark"] button.pri,:root[data-theme="dark"] .tabs button.on{color:#0b1220}
+@media (max-width:560px){
+  header{flex-wrap:wrap;row-gap:4px;padding-bottom:10px}
+  header h1{flex:1 1 100%}
+  .user{flex:1 1 100%;font-size:15.5px}
+  #who{flex:1 1 auto}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .tabs button{min-height:46px;padding:8px 6px;line-height:1.25}
+  .grid:has(>.stat){grid-template-columns:1fr 1fr;gap:10px}
+  .stat.card{padding:12px 8px}
+  .stat .v{font-size:30px}
+  .login{margin:16px auto}
+  .hrow button{min-height:44px;min-width:64px}
+  .hrow .muted[style]{font-size:15px!important}
+  .chip{font-size:13.5px}
+}
 </style>
 </head>
 <body>
